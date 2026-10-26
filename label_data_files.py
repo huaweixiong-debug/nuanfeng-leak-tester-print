@@ -52,6 +52,22 @@ def _text(value) -> str:
     return "" if value is None else str(value)
 
 
+def code_text(serial_number) -> str:
+    """Convert YYYYMMDD-MODEL-NNNNN to YYYYMMDDNNNN for the label code."""
+    text = _text(serial_number).strip()
+    if len(text) == 12 and text.isdigit():
+        sequence = int(text[8:])
+        if 1 <= sequence <= 9999:
+            return text
+    parts = text.split("-")
+    if (len(parts) >= 3 and len(parts[0]) == 8 and parts[0].isdigit()
+            and parts[-1].isdigit()):
+        sequence = int(parts[-1])
+        if 1 <= sequence <= 9999:
+            return f"{parts[0]}{sequence:04d}"
+    raise ValueError(f"无法转换为日期加四位序列号的代号: {text!r}")
+
+
 def _number(value) -> str:
     if isinstance(value, float):
         return format(value, ".15g")
@@ -89,7 +105,7 @@ def write_saved_cycle(cycle, *, directory=None, clear_seconds=None,
         if isinstance(saved_at, (int, float)) else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     files = {
         FILE_PRODUCT: _text(context.get("product_model")),
-        FILE_CODE: _text(cycle.serial_number),
+        FILE_CODE: code_text(cycle.serial_number),
         FILE_OPERATOR: _text(context.get("operator")),
         FILE_DATETIME: timestamp,
         FILE_LEAK: leak_text(cycle),

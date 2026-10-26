@@ -102,7 +102,7 @@ class LabelDataFileTests(unittest.TestCase):
         result = label_data_files.write_saved_cycle(
             cycle, directory=self.directory, saved_at=saved_at)
         self.assertEqual(self.read("产品名称.txt"), "暖风芯体")
-        self.assertEqual(self.read("代号.txt"), "20261026-M1-00001")
+        self.assertEqual(self.read("代号.txt"), "202610260001")
         self.assertEqual(self.read("检验员.txt"), "张三")
         self.assertEqual(self.read("日期时间.txt"), "2026-10-26 14:13:05")
         self.assertEqual(self.read("泄漏量.txt"),
@@ -110,6 +110,21 @@ class LabelDataFileTests(unittest.TestCase):
         self.assertEqual(len(result["files"]), 5)
         self.assertEqual(FakeTimer.instances[0].interval, 10.0)
         self.assertTrue(FakeTimer.instances[0].started)
+
+    def test_code_is_date_plus_four_digit_sequence_only(self):
+        cases = {
+            "20261026-EV37-00001": "202610260001",
+            "20261026-MODEL-WITH-HYPHEN-00234": "202610260234",
+            "20261026-EV37-09999": "202610269999",
+            "202610269999": "202610269999",
+        }
+        for serial, expected in cases.items():
+            with self.subTest(serial=serial):
+                self.assertEqual(label_data_files.code_text(serial), expected)
+        for invalid in ("20261026-EV37-00000", "20261026-EV37-10000", "SECOND"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    label_data_files.code_text(invalid)
 
     def test_single_program_writes_only_its_own_leak(self):
         label_data_files.write_saved_cycle(self.cycle(), directory=self.directory)
@@ -126,15 +141,15 @@ class LabelDataFileTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), b"", filename)
 
     def test_old_timer_cannot_clear_a_newer_cycle(self):
-        first = self.cycle(serial="FIRST")
+        first = self.cycle(serial="20261026-M1-00001")
         label_data_files.write_saved_cycle(first, directory=self.directory)
         old_timer = FakeTimer.instances[0]
-        second = self.cycle(serial="SECOND")
+        second = self.cycle(serial="20261026-M1-00002")
         label_data_files.write_saved_cycle(second, directory=self.directory)
         new_timer = FakeTimer.instances[1]
         self.assertTrue(old_timer.cancelled)
         old_timer.fire()
-        self.assertEqual(self.read("代号.txt"), "SECOND")
+        self.assertEqual(self.read("代号.txt"), "202610260002")
         new_timer.fire()
         self.assertEqual(self.read("代号.txt"), "")
 
@@ -163,7 +178,9 @@ class FinalizationIntegrationTests(unittest.TestCase):
         self.assertTrue(payload["record_saved"])
         self.assertEqual(payload["print_state"], "disabled")
         self.assertEqual((self.directory / "代号.txt").read_text(encoding="gbk"),
-                         cycle.serial_number)
+                         "202601010001")
+        self.assertEqual(cycle.serial_number, "20260101-MODEL-00001",
+                         "database serial must retain its original format")
         self.assertEqual(cycle.label_files_state, "written")
 
     def test_failed_save_does_not_write(self):
