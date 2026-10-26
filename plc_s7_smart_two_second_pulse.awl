@@ -1,0 +1,59 @@
+// S7-200 SMART STL template for the ATEQ four-bit handshake.
+//
+// Before use in STEP 7-MicroWIN SMART:
+// 1. Map Start_Request and Reset_Request to the confirmed physical/source signals.
+// 2. T37/T38 are 100 ms TON timers on S7-200 SMART; PT=20 means 2.0 seconds.
+// 3. M10.0/M10.1 are internal pulse states; confirm that they and T37/T38 are free.
+// 4. PC owns M0.2/M0.3. Only the two refresh networks below may write M0.0/M0.1.
+//
+// Symbol table (addresses must be confirmed on site):
+// Start_Request   Start request, normally open
+// Reset_Request   Reset request, normally open
+
+// First scan: clear internal states and the complete handshake byte.
+NETWORK 1
+LD     SM0.1
+R      M10.0, 2
+R      M0.0, 4
+
+// Keep internal pulse states separate from the shared MB0. The PC performs a
+// read-modify-write on MB0; these refresh networks restore PLC-owned bits each scan.
+NETWORK 2
+LD     Start_Request
+EU
+S      M10.0, 1
+
+NETWORK 3
+LD     M10.0
+TON    T37, 20
+
+NETWORK 4
+LD     T37
+R      M10.0, 1
+
+NETWORK 5
+LD     M10.0
+=      M0.0
+
+// A held Reset_Request does not retrigger; it must return OFF first.
+NETWORK 6
+LD     Reset_Request
+EU
+S      M10.1, 1
+
+NETWORK 7
+LD     M10.1
+TON    T38, 20
+
+NETWORK 8
+LD     T38
+R      M10.1, 1
+
+NETWORK 9
+LD     M10.1
+=      M0.1
+
+// PC -> PLC result signals (no PLC-side timer or reset logic here):
+// M0.2 = PASS pulse, written and cleared by the PC after 2 seconds.
+// M0.3 = FAIL pulse, written and cleared by the PC after 2 seconds.
+// Use M0.2/M0.3 rising edges in the PLC sequence as required by the machine.

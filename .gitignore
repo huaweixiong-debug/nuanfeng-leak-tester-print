@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.test-deps/
+
+# Runtime state and site configuration
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.tmp
+test_executor_state.json
+active_product.json
+line_settings.json
+layout_config.json
+products.json
+product_models.json
+
+# Deployment and generated artifacts
+backups/
+*.zip
+embedded_ui.js
+
+# Local credentials and OS files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
