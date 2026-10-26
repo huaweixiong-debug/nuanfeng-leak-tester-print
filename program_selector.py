@@ -1969,6 +1969,25 @@ class TestExecutor:
             cycle, record_id=record_id, serial_number=serial_number,
             record_saved=record_saved, record_error=record.get('error'))
 
+        # These five associated-label files belong to persistence, not printing:
+        # disabled/failed printing must not suppress them.  An idempotent existing
+        # row must not republish stale label data either.
+        if record_saved and created:
+            try:
+                import label_data_files
+                label_result = label_data_files.write_saved_cycle(
+                    cycle, saved_at=cycle.finished_at)
+                self._manager.set_cycle_field(
+                    cycle, label_files_state='written', label_files_message='')
+                print('[ATEQ] associated label files written; clear in '
+                      f"{label_result['clear_seconds']:g}s")
+            except Exception as exc:
+                # Never misreport this independent filesystem error as a failed
+                # database save or a BarTender submission failure.
+                self._manager.set_cycle_field(
+                    cycle, label_files_state='failed', label_files_message=str(exc))
+                print(f'[ATEQ] associated label file write failed: {exc}')
+
         # Durable print admission: the insert already marked a PASS record as
         # 'auto_pending', so no manual reprint can slip in before this submission.
         print_state = 'skipped'
