@@ -224,11 +224,11 @@ class SerialNumberGenerator:
                             VALUES (?, ?, ?)
                         ''', (current_date, product_model, current_count))
                     
-                    # 生成序列号
-                    if current_count > 99999:
-                        raise RuntimeError(f"产品型号 {product_model} 今天的序号已超过 99999")
+                    # 每天、每个型号独立从 0001 开始，最多到 9999。
+                    if current_count > 9999:
+                        raise RuntimeError(f"产品型号 {product_model} 今天的序号已超过 9999")
 
-                    serial_number = f"{current_date}-{product_model}-{current_count:05d}"
+                    serial_number = f"{current_date}-{product_model}-{current_count:04d}"
                     
                     # 保存到序列号表
                     cursor.execute('''
