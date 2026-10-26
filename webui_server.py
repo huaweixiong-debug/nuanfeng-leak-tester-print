@@ -2946,9 +2946,8 @@ HTML_TEMPLATE = '''
         initializeLoginState();
         startStatusPolling();
         
-        // 保存上一次的有效测量值；最终记录仍以后台同周期证据为准。
-        // 协议修订(2026-10-26)：压力取 StepCode 6 最后值（进入 7 后保持）；
-        // 泄漏取 StepCode 7 最后值，无 7 时后台回退到同周期 65535。
+        // 实时面板在测试阶段显示泄漏变化，结束后可显示最终值；
+        // 曲线只在 StepCode 6 采集，最终记录仍由后台 7／65535 证据决定。
         let lastValidPressure = null;
         let lastValidPressureUnit = null;
         let lastValidLeak = null;
@@ -2969,7 +2968,7 @@ HTML_TEMPLATE = '''
                 
                 if (data.success) {
                     const capturePressureRealtime = data.step_code >= 4 && data.step_code <= 6;
-                    const captureLeakRealtime = data.step_code === 7 || data.step_code === 65535;
+                    const captureLeakRealtime = data.step_code === 6 || data.step_code === 7 || data.step_code === 65535;
 
                     if (capturePressureRealtime && data.pressure !== null && data.pressure !== undefined) {
                         lastValidPressure = data.pressure;
@@ -3583,7 +3582,7 @@ HTML_TEMPLATE = '''
                     
                     // Fill开始 (step_code = 4)
                     const isFillStart = stepCode === 4 && lastStepCode !== 4;
-                    const isLeakStart = stepCode === 7 && lastStepCode !== 7;
+                    const isTestStart = stepCode === 6 && lastStepCode !== 6;
                     const isTestEnd = lastStepCode === 6 && stepCode !== 6;
                     const isPostTestIdleCaptureStart = stepCode === 65535 && lastStepCode !== 65535;
                     const postTestIdleCaptureActive =
@@ -3607,7 +3606,7 @@ HTML_TEMPLATE = '''
                         console.log('Fill开始(stepcode=4), 清空压力和泄漏量数据');
                     }
                     
-                    // 压力曲线覆盖 4..7；泄漏曲线覆盖 7，65535 仅作短时结束采样。
+                    // 过程曲线与最终取值分离：压力曲线覆盖 4..7，泄漏曲线只覆盖 Test=6。
                     if (((stepCode >= 4 && stepCode <= 7) || postTestIdleCaptureActive) && testStartTime) {
                         const elapsed = now - testStartTime;
                         const totalTime = testParams.fill_time + testParams.stab_time + testParams.test_time;
@@ -3619,9 +3618,9 @@ HTML_TEMPLATE = '''
                             pressureChart.update('none');
                         }
                         
-                        // 泄漏量数据 - StepCode 7，或结束帧 65535。
-                        if (stepCode === 7 || stepCode === 65535) {
-                            if (isLeakStart || testPhaseStartTime === null) {
+                        // 泄漏过程曲线只在 Test=6 采集；最终泄漏数值由后台 7/65535 判定。
+                        if (stepCode === 6) {
+                            if (isTestStart || testPhaseStartTime === null) {
                                 testPhaseStartTime = now;
                                 leakData = [];
                                 leakChart.data.datasets[0].data = [];
@@ -3639,7 +3638,7 @@ HTML_TEMPLATE = '''
                         statusEl.className = 'text-xs px-2 py-0.5 rounded bg-gray-600 text-gray-300';
                     }
                     
-                    // 6→7 不是整个周期结束，必须保留时间轴供泄漏阶段使用。
+                    // 离开 Test=6 后停止泄漏曲线采集，但保留已有曲线供查看。
                     if (isTestEnd) {
                         console.log('Test结束, 保持曲线');
                     }

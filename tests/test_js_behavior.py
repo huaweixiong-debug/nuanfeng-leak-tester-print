@@ -58,6 +58,19 @@ class JsBehaviorTests(unittest.TestCase):
         self.assertIn("没有可补打的已保存PASS记录", self.script)
         self.assertIn("record_id: recordId", self.script)
 
+    def test_leak_curve_uses_step6_not_final_value_steps(self):
+        charts = extract_function(self.script, "updateCharts")
+        self.assertIn(
+            "const isTestStart = stepCode === 6 && lastStepCode !== 6;", charts)
+        self.assertIn("if (stepCode === 6) {", charts)
+        self.assertNotIn("if (stepCode === 7 || stepCode === 65535)", charts)
+        self.assertNotIn("const isLeakStart = stepCode === 7", charts)
+        # The live monitor may show step 6 changes and the final 7/65535 value;
+        # this is deliberately independent from the curve acquisition window.
+        self.assertIn(
+            "const captureLeakRealtime = data.step_code === 6 || "
+            "data.step_code === 7 || data.step_code === 65535;", self.script)
+
     def test_node_behavioral_harness(self):
         node = shutil.which("node")
         if not node:
