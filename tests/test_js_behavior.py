@@ -99,7 +99,30 @@ class JsBehaviorTests(unittest.TestCase):
             # failure path
             "assert.strictEqual(resolvePrintUi({printed: false, state: 'failed'}).notify, 'error');",
             "assert.strictEqual(resolvePrintUi(null).clearQr, false);",
-            "console.log('JS_BEHAVIOR_OK');",
+            # A busy software/hardware cycle must not suppress realtime pressure.
+            "const monitorElements = Object.fromEntries(['pressure-value', 'pressure-unit', 'leak-value', 'leak-unit', 'device-status', 'monitor-status'].map(id => [id, {textContent: '', className: ''}]));",
+            "const document = {getElementById: id => monitorElements[id]};",
+            "let lastValidPressure = null;",
+            "let lastValidPressureUnit = null;",
+            "let lastValidLeak = null;",
+            "let lastValidLeakUnit = null;",
+            "let lastStepcode = 0;",
+            "let monitorDataPolling = false;",
+            "let monitorResponse = {success: true, busy: true, step_code: 6, pressure: 12.3456, pressure_unit: 'kPa', leak: -0.1234, leak_unit: 'mL/min', status: 0, status_text: '测试'};",
+            "const fetch = async () => ({json: async () => monitorResponse});",
+            "const clearStatusLights = () => {};",
+            "const updateStatusLights = () => {};",
+            "async " + extract_function(self.script, "updateMonitorData"),
+            "(async () => {",
+            "  await updateMonitorData();",
+            "  assert.strictEqual(monitorElements['pressure-value'].textContent, '12.346');",
+            "  assert.strictEqual(monitorElements['pressure-unit'].textContent, 'kPa');",
+            "  assert.strictEqual(monitorDataPolling, false);",
+            "  monitorResponse = {...monitorResponse, step_code: 65535, pressure: -0.08};",
+            "  await updateMonitorData();",
+            "  assert.strictEqual(monitorElements['pressure-value'].textContent, '-0.080');",
+            "  console.log('JS_BEHAVIOR_OK');",
+            "})().catch(error => { console.error(error); process.exit(1); });",
         ])
         with tempfile.TemporaryDirectory() as tmp:
             harness_path = Path(tmp) / "harness.js"

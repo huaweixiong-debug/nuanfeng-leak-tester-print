@@ -2964,16 +2964,16 @@ HTML_TEMPLATE = '''
             try {
                 const response = await fetch('/api/data');
                 const data = await response.json();
-                if (data.busy) return;
                 
                 if (data.success) {
-                    const capturePressureRealtime = data.step_code >= 4 && data.step_code <= 6;
+                    // 实时面板不受周期 busy 或 StepCode 限制；最终记录取值仍由后台决定。
+                    const hasRealtimePressure = data.pressure !== null && data.pressure !== undefined && Number.isFinite(Number(data.pressure));
                     const captureLeakRealtime = data.step_code === 6 || data.step_code === 7 || data.step_code === 65535;
 
-                    if (capturePressureRealtime && data.pressure !== null && data.pressure !== undefined) {
-                        lastValidPressure = data.pressure;
+                    if (hasRealtimePressure) {
+                        lastValidPressure = Number(data.pressure);
                         lastValidPressureUnit = data.pressure_unit || lastValidPressureUnit;
-                        document.getElementById('pressure-value').textContent = data.pressure.toFixed(3);
+                        document.getElementById('pressure-value').textContent = lastValidPressure.toFixed(3);
                         document.getElementById('pressure-unit').textContent = data.pressure_unit || '';
                     } else if (lastValidPressure !== null) {
                         document.getElementById('pressure-value').textContent = lastValidPressure.toFixed(3);
